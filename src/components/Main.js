@@ -2,9 +2,10 @@
 
 import React from 'react'
 import { StyleSheet, View } from 'react-native'
-import { compose, withState, withHandlers, withProps, } from 'recompose'
+import { compose, withHandlers } from 'recompose'
 import _ from 'lodash'
 import { SideMenu, Text } from 'react-native-elements'
+import {observer} from 'mobx-react'
 
 import MovieList from './MovieList'
 import SearchBox from './SearchBox'
@@ -13,97 +14,70 @@ import FavoriteButton from './FavoriteButton'
 
 type Props = {
   changeText: Function,
-  favorite: Function,
-  favoriteList: string[],
   getMore: Function,
-  history: string[],
   loadSearch: Function,
-  isFavorite: boolean,
-  pending: boolean,
   search: Function,
-  searchText: string,
-  movies: Object[],
   listState: Object,
+  store: Object,
 }
 
 const App = (props: Props) => {
-  const {changeText, favorite, favoriteList, getMore, isFavorite, history, listState, loadSearch, movies, pending, search, searchText} = props
+  const {changeText, getMore, loadSearch, search, store} = props
   return (
-    <SideMenu menu={<MenuPanel favorites={favoriteList} history={history} loadSearch={loadSearch} />}>
+    <SideMenu menu={<MenuPanel store={store} loadSearch={loadSearch} />}>
       <View style={styles.container}>
         <Text h2 style={styles.heading}>MovieFōn</Text>
         <View style={styles.topRow}>
-          <SearchBox search={search} pending={pending} changeText={changeText} searchText={searchText} />
-          <FavoriteButton isFavorite={isFavorite} favorite={favorite} searchText={searchText} />
+          <SearchBox search={search} changeText={changeText} store={store} />
+          <FavoriteButton store={store} />
         </View>
-        <MovieList getMore={getMore} movies={movies} isGettingMore={listState.isGettingMore} />
+        <MovieList getMore={getMore} store={store} />
       </View>
     </SideMenu>
   )
 }
 
 const enhance = compose(
-  withState('pending', 'setPending', false),
-  withState('listState', 'setListState', {hasMore: true, isGettingMore: false, nextPage: 2}),
-  withState('searchText', 'setSearchText', ''),
-  withState('movies', 'setMovies', []),
-  withState('favoriteList', 'setFavoriteList', []),
-  withState('history', 'setHistory', []),
-  withProps((props) => ({
-    ...props,
-    isFavorite: props.searchText !== '' && props.favoriteList.includes(props.searchText)
-  })),
   withHandlers({
-    changeText: ({setSearchText, setMovies}) => (text) => {
-      if (text === '') setMovies([])
-      setSearchText(text)
+    changeText: ({store}) => (text) => {
+      if (text === '') store.movies = []
+      store.searchText = text
     },
-    search: (props) => async () => {
-      const {history, searchText, setHistory, setPending, setMovies, setListState} = props
-      if (searchText === '') return
-      setPending(true)
-      setListState({hasMore: true, isGettingMore: false, nextPage: 2})
-      const results = await searchMovies(searchText, 1)
+    search: ({store}) => async () => {
+      if (store.searchText === '') return
+      store.pending = true
+      store.listState = {hasMore: true, isGettingMore: false, nextPage: 2}
+      const results = await searchMovies(store.searchText, 1)
       if (results) {
-        setMovies(results)
-        setHistory(_.union(history, [searchText]))
+        store.movies = results
+        store.history = _.union(store.history, [store.searchText])
       }
-      setPending(false)
+      store.pending = false
     },
-    getMore: (props) => async () => {
-      const {listState, movies, setMovies, searchText, setListState} = props
-      const {isGettingMore, hasMore} = listState
+    getMore: ({store}) => async () => {
+      const {listState, movies, searchText} = store
+      const {isGettingMore, hasMore, nextPage} = listState
 
       if (!movies.length || isGettingMore || !hasMore) return
 
-      setListState({...listState, isGettingMore: true})
-      const results = await searchMovies(searchText, listState.nextPage)
+      store.listState = {...listState, isGettingMore: true}
+      const results = await searchMovies(searchText, nextPage)
       if (results && results.length) {
-        setMovies([...movies, ...results])
-        setListState({hasMore: true, isGettingMore: false, nextPage: listState.nextPage + 1})
+        store.movies = [...movies, ...results]
+        store.listState = {hasMore: true, isGettingMore: false, nextPage: nextPage + 1}
       } else {
-        setListState({hasMore: false, isGettingMore: false})
-      }
-    },
-    favorite: ({isFavorite, setFavoriteList, favoriteList, searchText}) => () => {
-      if (searchText === '') return
-      if (isFavorite) {
-        setFavoriteList(favoriteList.filter(f => f !== searchText))
-      } else {
-        setFavoriteList([
-          ...favoriteList,
-          searchText
-        ])
+        store.listState = {hasMore: false, isGettingMore: false}
       }
     },
   }),
   withHandlers({
-    loadSearch: ({search, setSearchText}) => (text) => {
-      setSearchText(text)
+    loadSearch: ({search, store}) => (text) => {
+      store.searchText = text
       // @HACK
       setTimeout(search, 200)
     }
-  })
+  }),
+  observer,
 )
 
 const searchMovies = async (text, page) => {

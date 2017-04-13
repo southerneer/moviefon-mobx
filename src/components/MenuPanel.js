@@ -7,11 +7,11 @@ import {
   View,
 } from 'react-native'
 import { Text } from 'react-native-elements'
+import {observer} from 'mobx-react'
 
 type Props = {
-  favorites: string[],
-  history: string[],
   loadSearch: Function,
+  store: Object,
 }
 
 const TextLink = ({loadSearch, text}) => (
@@ -20,21 +20,21 @@ const TextLink = ({loadSearch, text}) => (
   </TouchableOpacity>
 )
 
-export default (props: Props) => {
+export default observer((props: Props) => {
   return (
     <View style={styles.container}>
       <Text h3 style={styles.headings}>Favorites</Text>
-      {props.favorites.map(f => (
+      {props.store.favorites.slice().map(f => (
         <TextLink loadSearch={props.loadSearch} text={f} key={'k' + f} />
       ))}
 
       <Text h3 style={[styles.headings, {marginTop: 40}]}>History</Text>
-      {props.history.map(h => (
+      {props.store.history.slice().map(h => (
         <TextLink loadSearch={props.loadSearch} text={h} key={'h' + h} />
       ))}
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: {

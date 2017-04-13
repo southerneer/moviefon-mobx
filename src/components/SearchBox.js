@@ -2,26 +2,26 @@
 
 import React from 'react'
 import { SearchBar } from 'react-native-elements'
+import {observer} from 'mobx-react'
 
 type Props = {
   search: Function,
-  pending: boolean,
   changeText: Function,
-  searchText: string,
+  store: Object,
 }
 
-const SearchBox = ({pending, changeText, search, searchText,}: Props) => (
+const SearchBox = observer(({changeText, search, store}: Props) => (
   <SearchBar
     containerStyle={{flex: 1}}
     clearButtonMode="always"
-    editable={!pending}
+    editable={!store.pending}
     lightTheme
     onChangeText={changeText}
     onEndEditing={search}
     placeholder="Search by title"
-    showLoadingIcon={pending}
-    value={searchText}
+    showLoadingIcon={store.pending}
+    value={store.searchText}
   />
-)
+))
 
 export default SearchBox

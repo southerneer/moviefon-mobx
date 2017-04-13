@@ -3,19 +3,18 @@
 import React from 'react'
 import { ActivityIndicator, ListView, StyleSheet, Text } from 'react-native'
 import { ListItem } from 'react-native-elements'
-import { compose, withHandlers, withState, withPropsOnChange } from 'recompose'
+import { compose, withHandlers } from 'recompose'
+import {observer} from 'mobx-react'
 
 type Props = {
-  dataSource: Object,
   getMore: Function,
-  movies: Object[],
+  store: Object,
   renderFooter: Function,
-  isGettingMore: boolean,
 }
 
-const MovieList = (props: Props) => (
+const MovieList = ({getMore, renderFooter, store}: Props) => (
   <ListView
-    dataSource={props.dataSource}
+    dataSource={store.movieDataSource}
     renderRow={movie => (
       <ListItem
         key={movie.imdbID}
@@ -33,31 +32,21 @@ const MovieList = (props: Props) => (
     pageSize={10}
     style={styles.list}
     enableEmptySections
-    onEndReached={props.getMore}
+    onEndReached={getMore}
     onEndReachedThreshold={500}
-    renderFooter={props.renderFooter}
+    renderFooter={renderFooter}
   />
 )
 
-const getNewDataSource = () => (new ListView.DataSource({rowHasChanged: (m1, m2) => m1.imdbID !== m2.imdbID}))
-
 const enhance = compose(
-  withState('dataSource', 'setDataSource', getNewDataSource()),
-  withPropsOnChange(['movies'], (props: Props) => {
-    const {dataSource, movies} = props
-    let newDS = movies.length ? dataSource.cloneWithRows(movies) : getNewDataSource()
-    return {
-      ...props,
-      dataSource: newDS
-    }
-  }),
+  observer,
   withHandlers({
-    renderFooter: ({isGettingMore, movies}: Props) => () => {
-      if (!movies.length) {
+    renderFooter: ({store}: Props) => () => {
+      if (!store.movies.length) {
         return (<Text style={styles.placeholder}>Movies will show here after a search</Text>)
         // return (<ActivityIndicator style={styles.activity} size="large" />)
       } else {
-        if (isGettingMore) return (<ActivityIndicator size="small" />)
+        if (store.isGettingMore) return (<ActivityIndicator size="small" />)
         else return null
       }
     }
